@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Test Report Dashboard — QA Analytics</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0c0f1a;
+    --card: #151929;
+    --card-hover: #1c2237;
+    --border: #252d44;
+    --text: #e2e8f0;
+    --text-muted: #8892a8;
+    --accent: #6366f1;
+    --accent2: #a78bfa;
+    --green: #10b981;
+    --red: #f43f5e;
+    --orange: #f59e0b;
+    --cyan: #22d3ee;
+    --blue: #3b82f6;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  .header {
+    background: linear-gradient(135deg, #1a1040 0%, #0c0f1a 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 20px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .header h1 {
+    font-size: 22px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .header .meta { font-size: 13px; color: var(--text-muted); }
+  .filters {
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 32px;
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .filters label { font-size: 13px; color: var(--text-muted); margin-right: 4px; }
+  .filters select {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .filters select:focus { outline: none; border-color: var(--accent); }
+  .container { max-width: 1400px; margin: 0 auto; padding: 24px 32px; }
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .kpi-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    transition: background 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .kpi-card:hover { background: var(--card-hover); }
+  .kpi-card .accent-bar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+  .kpi-card .label {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
+  .kpi-card .value { font-size: 30px; font-weight: 700; line-height: 1.1; }
+  .kpi-card .sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+  .chart-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+  .chart-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .chart-card h3 {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 16px;
+  }
+  .chart-card canvas { max-height: 280px; }
+  .full-width { grid-column: 1 / -1; }
+  .table-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+  .table-card h3 { font-size: 14px; font-weight: 600; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th {
+    text-align: left; padding: 10px 12px; border-bottom: 2px solid var(--border);
+    color: var(--text-muted); font-weight: 500; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px;
+  }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  tr:hover td { background: rgba(99,102,241,0.05); }
+  .badge {
+    display: inline-block; padding: 2px 10px; border-radius: 12px;
+    font-size: 11px; font-weight: 600;
+  }
+  .badge-pass { background: rgba(16,185,129,0.15); color: var(--green); }
+  .badge-fail { background: rgba(244,63,94,0.15); color: var(--red); }
+  .badge-skip { background: rgba(245,158,11,0.15); color: var(--orange); }
+  .badge-block { background: rgba(148,163,184,0.15); color: var(--text-muted); }
+  .badge-critical { background: rgba(244,63,94,0.15); color: var(--red); }
+  .badge-major { background: rgba(245,158,11,0.15); color: var(--orange); }
+  .badge-minor { background: rgba(59,130,246,0.15); color: var(--blue); }
+  .badge-trivial { background: rgba(148,163,184,0.15); color: var(--text-muted); }
+  .progress-ring {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .mini-bar {
+    display: flex;
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 8px;
+  }
+  .mini-bar > div { transition: width 0.5s ease; }
+  .footer {
+    text-align: center; padding: 20px; font-size: 12px;
+    color: var(--text-muted); border-top: 1px solid var(--border);
+  }
+  @media (max-width: 900px) {
+    .chart-grid { grid-template-columns: 1fr; }
+    .kpi-row { grid-template-columns: repeat(2, 1fr); }
+    .container { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1><span style="font-size:28px">🧪</span> Test Report Dashboard</h1>
+  <div class="meta">Last run: Feb 10, 2026 08:45 AM &nbsp;|&nbsp; Sprint Data: Sep 2025 – Feb 2026</div>
+</div>
+
+<div class="filters">
+  <div>
+    <label>Sprint:</label>
+    <select id="filterSprint" onchange="applyFilters()">
+      <option value="all">All Sprints</option>
+    </select>
+  </div>
+  <div>
+    <label>Module:</label>
+    <select id="filterModule" onchange="applyFilters()">
+      <option value="all">All Modules</option>
+    </select>
+  </div>
+  <div>
+    <label>Test Type:</label>
+    <select id="filterType" onchange="applyFilters()">
+      <option value="all">All Types</option>
+      <option value="Functional">Functional</option>
+      <option value="Regression">Regression</option>
+      <option value="Integration">Integration</option>
+      <option value="Performance">Performance</option>
+      <option value="Security">Security</option>
+      <option value="API">API</option>
+    </select>
+  </div>
+</div>
+
+<div class="container">
+  <div class="kpi-row" id="kpiRow"></div>
+
+  <div class="chart-grid">
+    <div class="chart-card full-width">
+      <h3>📈 Test Execution Trend by Sprint</h3>
+      <canvas id="trendChart"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3>🎯 Pass / Fail / Skip Distribution</h3>
+      <canvas id="resultChart"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3>🐛 Defects by Severity</h3>
+      <canvas id="defectSeverityChart"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3>📦 Test Coverage by Module</h3>
+      <canvas id="coverageChart"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3>🔬 Tests by Type</h3>
+      <canvas id="typeChart"></canvas>
+    </div>
+  </div>
+
+  <div class="chart-grid">
+    <div class="chart-card full-width">
+      <h3>📊 Defect Trend (Open vs Closed per Sprint)</h3>
+      <canvas id="defectTrendChart"></canvas>
+    </div>
+  </div>
+
+  <div class="table-card">
+    <h3>🔴 Recent Failed Test Cases</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Test ID</th>
+          <th>Test Case</th>
+          <th>Module</th>
+          <th>Type</th>
+          <th>Result</th>
+          <th>Defect Severity</th>
+          <th>Sprint</th>
+          <th>Duration</th>
+        </tr>
+      </thead>
+      <tbody id="failedTable"></tbody>
+    </table>
+  </div>
+
+  <div class="chart-grid">
+    <div class="chart-card">
+      <h3>⏱️ Avg Execution Time by Module (sec)</h3>
+      <canvas id="durationChart"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3>🔄 Test Flakiness Rate</h3>
+      <canvas id="flakyChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  Test Report Dashboard — Sample Data for Demonstration &nbsp;|&nbsp; Built with Chart.js
+</div>
+
+<script>
+// ── DATA GENERATION ──
+const sprints = ['Sprint 19','Sprint 20','Sprint 21','Sprint 22','Sprint 23','Sprint 24'];
+const sprintMonths = ['Sep 2025','Oct 2025','Nov 2025','Dec 2025','Jan 2026','Feb 2026'];
+const modules = ['Authentication','Dashboard','Payments','User Mgmt','Reports','API Gateway','Notifications'];
+const testTypes = ['Functional','Regression','Integration','Performance','Security','API'];
+const results = ['Pass','Fail','Skip','Blocked'];
+const severities = ['Critical','Major','Minor','Trivial'];
+
+const testCases = {
+  Authentication: ['Login with valid credentials','Login with expired password','MFA verification flow','SSO integration test','Session timeout handling','Password reset email'],
+  Dashboard: ['Widget load performance','Data refresh interval','Chart rendering accuracy','Export to PDF','Filter persistence','Role-based view access'],
+  Payments: ['Credit card processing','Refund workflow','Invoice generation','Currency conversion','Payment retry logic','Receipt email delivery'],
+  'User Mgmt': ['User creation flow','Role assignment','Bulk user import','Profile update validation','Deactivation workflow','Audit trail logging'],
+  Reports: ['Report generation time','Scheduled report delivery','Custom date range filter','CSV export formatting','Chart data accuracy','Permission-based visibility'],
+  'API Gateway': ['Rate limiting enforcement','Auth token validation','Response format consistency','Error code mapping','Webhook delivery','API versioning'],
+  Notifications: ['Email notification trigger','Push notification delivery','In-app alert display','Notification preferences','Batch notification queue','Unsubscribe flow']
+};
+
+function randomInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+function randomChoice(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+let allTests = [];
+let testId = 5000;
+
+sprints.forEach((sprint, si) => {
+  const baseCount = randomInt(70, 120);
+  for (let i = 0; i < baseCount; i++) {
+    const mod = randomChoice(modules);
+    const type = randomChoice(testTypes);
+    // Weighted results: ~65% pass, ~20% fail, ~10% skip, ~5% blocked
+    const rng = Math.random();
+    let result;
+    if (rng < 0.65 + si * 0.02) result = 'Pass';     // improve over sprints
+    else if (rng < 0.85 + si * 0.01) result = 'Fail';
+    else if (rng < 0.95) result = 'Skip';
+    else result = 'Blocked';
+
+    let severity = null;
+    if (result === 'Fail') severity = randomChoice(severities);
+
+    const duration = type === 'Performance' ? randomInt(30, 180) :
+                     type === 'Integration' ? randomInt(10, 60) :
+                     type === 'Security' ? randomInt(15, 90) :
+                     randomInt(2, 30);
+
+    const flaky = result === 'Pass' && Math.random() < 0.08;
+
+    allTests.push({
+      id: `TC-${testId++}`,
+      name: randomChoice(testCases[mod]),
+      module: mod,
+      type: type,
+      result: result,
+      severity: severity,
+      sprint: sprint,
+      sprintIndex: si,
+      duration: duration,
+      flaky: flaky
+    });
+  }
+});
+
+// Populate filter dropdowns
+const sprintSel = document.getElementById('filterSprint');
+sprints.forEach(s => { const o = document.createElement('option'); o.value = s; o.textContent = s; sprintSel.appendChild(o); });
+const modSel = document.getElementById('filterModule');
+modules.forEach(m => { const o = document.createElement('option'); o.value = m; o.textContent = m; modSel.appendChild(o); });
+
+// ── CHARTS ──
+let charts = {};
+Chart.defaults.color = '#8892a8';
+Chart.defaults.borderColor = '#252d44';
+Chart.defaults.font.family = "'Segoe UI', system-ui, sans-serif";
+
+function getFiltered() {
+  const sp = document.getElementById('filterSprint').value;
+  const mod = document.getElementById('filterModule').value;
+  const type = document.getElementById('filterType').value;
+  let f = [...allTests];
+  if (sp !== 'all') f = f.filter(t => t.sprint === sp);
+  if (mod !== 'all') f = f.filter(t => t.module === mod);
+  if (type !== 'all') f = f.filter(t => t.type === type);
+  return f;
+}
+
+function renderKPIs(data) {
+  const total = data.length;
+  const passed = data.filter(t => t.result === 'Pass').length;
+  const failed = data.filter(t => t.result === 'Fail').length;
+  const skipped = data.filter(t => t.result === 'Skip').length;
+  const blocked = data.filter(t => t.result === 'Blocked').length;
+  const passRate = total ? ((passed / total) * 100).toFixed(1) : '0';
+  const defects = data.filter(t => t.severity).length;
+  const criticalDefects = data.filter(t => t.severity === 'Critical').length;
+  const avgDur = total ? (data.reduce((s,t) => s + t.duration, 0) / total).toFixed(1) : '0';
+  const flakyCount = data.filter(t => t.flaky).length;
+
+  const passColor = parseFloat(passRate) >= 80 ? 'var(--green)' : parseFloat(passRate) >= 60 ? 'var(--orange)' : 'var(--red)';
+
+  document.getElementById('kpiRow').innerHTML = `
+    <div class="kpi-card">
+      <div class="accent-bar" style="background:var(--accent)"></div>
+      <div class="label">Total Tests</div>
+      <div class="value">${total}</div>
+      <div class="mini-bar">
+        <div style="width:${(passed/total*100)}%;background:var(--green)"></div>
+        <div style="width:${(failed/total*100)}%;background:var(--red)"></div>
+        <div style="width:${(skipped/total*100)}%;background:var(--orange)"></div>
+        <div style="width:${(blocked/total*100)}%;background:var(--text-muted)"></div>
+      </div>
+    </div>
+    <div class="kpi-card">
+      <div class="accent-bar" style="background:${passColor}"></div>
+      <div class="label">Pass Rate</div>
+      <div class="value" style="color:${passColor}">${passRate}%</div>
+      <div class="sub">${passed} passed of ${total}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="accent-bar" style="background:var(--red)"></div>
+      <div class="label">Failed</div>
+      <div class="value" style="color:var(--red)">${failed}</div>
+      <div class="sub">${criticalDefects} critical defects</div>
+    </div>
+    <div class="kpi-card">
+      <div class="accent-bar" style="background:var(--orange)"></div>
+      <div class="label">Skipped / Blocked</div>
+      <div class="value" style="color:var(--orange)">${skipped + blocked}</div>
+      <div class="sub">${skipped} skipped, ${blocked} blocked</div>
+    </div>
+    <div class="kpi-card">
+      <div class="accent-bar" style="background:var(--cyan)"></div>
+      <div class="label">Total Defects</div>
+      <div class="value" style="color:var(--cyan)">${defects}</div>
+      <div class="sub">${criticalDefects} critical, ${data.filter(t=>t.severity==='Major').length} major</div>
+    </div>
+    <div class="kpi-card">
+      <div class="accent-bar" style="background:var(--accent2)"></div>
+      <div class="label">Avg Duration</div>
+      <div class="value" style="color:var(--accent2)">${avgDur}s</div>
+      <div class="sub">${flakyCount} flaky tests detected</div>
+    </div>
+  `;
+}
+
+function makeChart(id, config) {
+  if (charts[id]) charts[id].destroy();
+  charts[id] = new Chart(document.getElementById(id), config);
+}
+
+function renderCharts(data) {
+  const activeSprints = [...new Set(data.map(t => t.sprint))];
+  const sorted = sprints.filter(s => activeSprints.includes(s));
+
+  // Trend stacked bar
+  const trendPass = sorted.map(s => data.filter(t => t.sprint === s && t.result === 'Pass').length);
+  const trendFail = sorted.map(s => data.filter(t => t.sprint === s && t.result === 'Fail').length);
+  const trendSkip = sorted.map(s => data.filter(t => t.sprint === s && t.result === 'Skip').length);
+  const trendBlock = sorted.map(s => data.filter(t => t.sprint === s && t.result === 'Blocked').length);
+
+  makeChart('trendChart', {
+    type: 'bar',
+    data: {
+      labels: sorted,
+      datasets: [
+        { label: 'Pass', data: trendPass, backgroundColor: '#10b981', borderRadius: 4 },
+        { label: 'Fail', data: trendFail, backgroundColor: '#f43f5e', borderRadius: 4 },
+        { label: 'Skip', data: trendSkip, backgroundColor: '#f59e0b', borderRadius: 4 },
+        { label: 'Blocked', data: trendBlock, backgroundColor: '#64748b', borderRadius: 4 }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'top' } },
+      scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } }
+    }
+  });
+
+  // Result doughnut
+  const resCounts = results.map(r => data.filter(t => t.result === r).length);
+  makeChart('resultChart', {
+    type: 'doughnut',
+    data: {
+      labels: results,
+      datasets: [{ data: resCounts, backgroundColor: ['#10b981','#f43f5e','#f59e0b','#64748b'], borderWidth: 0 }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'right' },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const total = ctx.dataset.data.reduce((a,b) => a+b, 0);
+              return `${ctx.label}: ${ctx.raw} (${((ctx.raw/total)*100).toFixed(1)}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
+
+  // Defect severity
+  const sevCounts = severities.map(s => data.filter(t => t.severity === s).length);
+  makeChart('defectSeverityChart', {
+    type: 'bar',
+    data: {
+      labels: severities,
+      datasets: [{ label: 'Defects', data: sevCounts, backgroundColor: ['#f43f5e','#f59e0b','#3b82f6','#64748b'], borderRadius: 6 }]
+    },
+    options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+  });
+
+  // Coverage by module (horizontal bar with pass rate)
+  const modPassRates = modules.map(m => {
+    const mTests = data.filter(t => t.module === m);
+    return mTests.length ? ((mTests.filter(t => t.result === 'Pass').length / mTests.length) * 100).toFixed(1) : 0;
+  });
+  makeChart('coverageChart', {
+    type: 'bar',
+    data: {
+      labels: modules,
+      datasets: [{
+        label: 'Pass Rate %',
+        data: modPassRates,
+        backgroundColor: modPassRates.map(v => parseFloat(v) >= 80 ? '#10b981' : parseFloat(v) >= 60 ? '#f59e0b' : '#f43f5e'),
+        borderRadius: 6
+      }]
+    },
+    options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } }, scales: { x: { min: 0, max: 100 } } }
+  });
+
+  // Tests by type
+  const typeCounts = testTypes.map(tp => data.filter(t => t.type === tp).length);
+  makeChart('typeChart', {
+    type: 'polarArea',
+    data: {
+      labels: testTypes,
+      datasets: [{ data: typeCounts, backgroundColor: ['#6366f1','#3b82f6','#06b6d4','#10b981','#f43f5e','#f59e0b'].map(c => c + 'cc') }]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'right' } } }
+  });
+
+  // Defect trend
+  const defectOpened = sorted.map(s => data.filter(t => t.sprint === s && t.severity).length);
+  const defectClosed = sorted.map((s, i) => Math.max(0, defectOpened[i] - randomInt(0, Math.floor(defectOpened[i] * 0.3))));
+  makeChart('defectTrendChart', {
+    type: 'line',
+    data: {
+      labels: sorted,
+      datasets: [
+        { label: 'Defects Found', data: defectOpened, borderColor: '#f43f5e', backgroundColor: 'rgba(244,63,94,0.1)', fill: true, tension: 0.3 },
+        { label: 'Defects Closed', data: defectClosed, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)', fill: true, tension: 0.3 }
+      ]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true } } }
+  });
+
+  // Duration by module
+  const modDurations = modules.map(m => {
+    const mTests = data.filter(t => t.module === m);
+    return mTests.length ? (mTests.reduce((s,t) => s + t.duration, 0) / mTests.length).toFixed(1) : 0;
+  });
+  makeChart('durationChart', {
+    type: 'bar',
+    data: {
+      labels: modules,
+      datasets: [{ label: 'Avg Sec', data: modDurations, backgroundColor: '#a78bfa', borderRadius: 6 }]
+    },
+    options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+  });
+
+  // Flaky rate by module
+  const flakyRates = modules.map(m => {
+    const mTests = data.filter(t => t.module === m);
+    return mTests.length ? ((mTests.filter(t => t.flaky).length / mTests.length) * 100).toFixed(1) : 0;
+  });
+  makeChart('flakyChart', {
+    type: 'radar',
+    data: {
+      labels: modules,
+      datasets: [{
+        label: 'Flaky %',
+        data: flakyRates,
+        borderColor: '#22d3ee',
+        backgroundColor: 'rgba(34,211,238,0.15)',
+        pointBackgroundColor: '#22d3ee'
+      }]
+    },
+    options: { responsive: true, plugins: { legend: { display: false } }, scales: { r: { beginAtZero: true, max: 20 } } }
+  });
+}
+
+function renderTable(data) {
+  const failed = data
+    .filter(t => t.result === 'Fail')
+    .sort((a,b) => b.sprintIndex - a.sprintIndex || (severities.indexOf(a.severity) - severities.indexOf(b.severity)))
+    .slice(0, 15);
+
+  const sevBadge = { Critical: 'badge-critical', Major: 'badge-major', Minor: 'badge-minor', Trivial: 'badge-trivial' };
+  const resBadge = { Pass: 'badge-pass', Fail: 'badge-fail', Skip: 'badge-skip', Blocked: 'badge-block' };
+
+  document.getElementById('failedTable').innerHTML = failed.map(t => `
+    <tr>
+      <td><strong>${t.id}</strong></td>
+      <td>${t.name}</td>
+      <td>${t.module}</td>
+      <td>${t.type}</td>
+      <td><span class="badge ${resBadge[t.result]}">${t.result}</span></td>
+      <td><span class="badge ${sevBadge[t.severity]}">${t.severity}</span></td>
+      <td>${t.sprint}</td>
+      <td>${t.duration}s</td>
+    </tr>
+  `).join('');
+}
+
+function applyFilters() {
+  const data = getFiltered();
+  renderKPIs(data);
+  renderCharts(data);
+  renderTable(data);
+}
+
+applyFilters();
+</script>
+</body>
+</html>
